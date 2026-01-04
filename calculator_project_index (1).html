@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Calculator Project</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --btn-size: 64px;
+      --gap: 10px;
+      --bg: #0f1724;
+      --panel: #111827;
+      --accent: #00bfa5;
+      --text: #ffffff;
+    }
+
+    html, body {
+      height: 100%;
+      background: linear-gradient(180deg, #02111a 0%, #07202a 100%);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+    }
+
+    .calculator-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    .calculator {
+      width: 360px;
+      background: #1a2235;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(2, 6, 23, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .display {
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 12px 14px;
+      min-height: 68px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-end;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    .display .expr {
+      font-size: 14px;
+      opacity: 0.7;
+      width: 100%;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .display .value {
+      font-size: 28px;
+      font-weight: 600;
+      width: 100%;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .pad {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--gap);
+    }
+
+    .btn-calc {
+      height: var(--btn-size);
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      border: none;
+      transition: 0.2s;
+    }
+
+    .btn-calc:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-num {
+      background: #2d3a5c;
+    }
+
+    .btn-op {
+      background: #00bfa5;
+      color: #ffffff;
+    }
+
+    .btn-ac {
+      background: #e53935;
+      color: white;
+    }
+
+    .btn-eq {
+      background: #039be5;
+      color: white;
+      grid-column: span 2;
+    }
+
+    @media (max-width: 420px) {
+      .calculator { width: 100%; }
+      :root { --btn-size: 56px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator-wrap">
+    <div class="calculator">
+      <div class="display" id="display">
+        <div class="expr" id="expression">&nbsp;</div>
+        <div class="value" id="value">0</div>
+      </div>
+
+      <div class="pad" id="pad"></div>
+
+      <div class="mt-3 text-center text-muted small">Built with HTML, CSS, and JS</div>
+    </div>
+  </div>
+
+  <script>
+    const buttons = [
+      {label: 'AC', type: 'func', id: 'ac'},
+      {label: '%', type: 'op', id: 'percent'},
+      {label: 'x²', type: 'func', id: 'square'},
+      {label: '÷', type: 'op', value: '/'},
+      {label: '7', type: 'num'},
+      {label: '8', type: 'num'},
+      {label: '9', type: 'num'},
+      {label: '×', type: 'op', value: '*'},
+      {label: '4', type: 'num'},
+      {label: '5', type: 'num'},
+      {label: '6', type: 'num'},
+      {label: '-', type: 'op', value: '-'},
+      {label: '1', type: 'num'},
+      {label: '2', type: 'num'},
+      {label: '3', type: 'num'},
+      {label: '+', type: 'op', value: '+'},
+      {label: '0', type: 'num', wide: true},
+      {label: '.', type: 'num'},
+      {label: '=', type: 'eq'}
+    ];
+
+    const state = { current: '0', expression: '', lastPressed: null };
+
+    const pad = document.getElementById('pad');
+    const displayValue = document.getElementById('value');
+    const displayExpr = document.getElementById('expression');
+
+    buttons.forEach(btn => {
+      const b = document.createElement('button');
+      b.className = 'btn btn-calc ' + (btn.type === 'num' ? 'btn-num' : (btn.type === 'op' ? 'btn-op' : ''));
+      if (btn.id === 'ac') b.classList.add('btn-ac');
+      if (btn.type === 'eq') b.classList.add('btn-eq');
+      if (btn.wide) b.style.gridColumn = 'span 2';
+      b.innerText = btn.label;
+      b.addEventListener('click', () => handleButton(btn));
+      pad.appendChild(b);
+    });
+
+    function render() {
+      displayValue.innerText = state.current;
+      displayExpr.innerText = state.expression || '\u00A0';
+    }
+
+    function allClear() {
+      state.current = '0';
+      state.expression = '';
+      state.lastPressed = 'ac';
+      render();
+    }
+
+    function formatNumber(n) {
+      if (Number.isFinite(n) && Math.floor(n) === n) return String(n);
+      return parseFloat(n.toPrecision(10)).toString();
+    }
+
+    function computeExpression(expr) {
+      if (!/^[0-9+\-*/(). %]+$/.test(expr)) throw new Error('Invalid');
+      const fn = new Function('return ' + expr);
+      return fn();
+    }
+
+    function handleButton(btn) {
+      if (btn.type === 'num') return handleNum(btn.label);
+      if (btn.type === 'op') return handleOp(btn.value || btn.label);
+      if (btn.type === 'func') return handleFunc(btn.id);
+      if (btn.type === 'eq') return handleEquals();
+    }
+
+    function handleNum(label) {
+      if (state.lastPressed === 'eq') { state.current = '0'; state.expression = ''; }
+      if (label === '.') {
+        if (!state.current.includes('.')) state.current += '.';
+      } else {
+        if (state.current === '0') state.current = label;
+        else state.current += label;
+      }
+      state.lastPressed = 'num';
+      render();
+    }
+
+    function handleOp(op) {
+      if (state.lastPressed === 'op') {
+        state.expression = state.expression.slice(0, -1) + op;
+      } else {
+        state.expression += (state.expression === '' ? '' : ' ') + state.current + ' ' + op;
+        state.current = '0';
+      }
+      state.lastPressed = 'op';
+      render();
+    }
+
+    function handleFunc(id) {
+      if (id === 'ac') return allClear();
+      if (id === 'square') {
+        const num = parseFloat(state.current);
+        if (!isNaN(num)) {
+          state.current = formatNumber(num * num);
+          state.lastPressed = 'func';
+          render();
+        }
+      } else if (id === 'percent') {
+        const num = parseFloat(state.current);
+        if (!isNaN(num)) {
+          state.current = formatNumber(num / 100);
+          state.lastPressed = 'func';
+          render();
+        }
+      }
+    }
+
+    function handleEquals() {
+      let expr = state.expression;
+      if (state.lastPressed === 'op') {
+        expr = expr.trim().slice(0, -1);
+      } else {
+        expr = (expr === '' ? '' : expr + ' ') + state.current;
+      }
+      try {
+        const safeExpr = expr.replace(/×/g, '*').replace(/÷/g, '/');
+        const result = computeExpression(safeExpr);
+        state.current = formatNumber(result);
+        state.expression = expr + ' =';
+        state.lastPressed = 'eq';
+        render();
+      } catch {
+        state.current = 'Error';
+        render();
+      }
+    }
+
+    allClear();
+  </script>
+</body>
+</html>
